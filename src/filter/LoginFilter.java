@@ -13,7 +13,7 @@ import java.util.logging.Logger;
  *
  * @author waiter
  */
-//@WebFilter(filterName = "LoginFilter",urlPatterns = "/*")
+@WebFilter(filterName = "LoginFilter",urlPatterns = "/*")
 public class LoginFilter implements Filter {
     ServletContext servletContext;
     Logger logger=Logger.getLogger(this.getClass().getName());
@@ -53,6 +53,7 @@ public class LoginFilter implements Filter {
                 if (obj != null) {
                     // 放行
                     filterChain.doFilter(request, response);
+                    return;
                 } else {
                     //3.3如果获取的内容为空，说明没有登陆； 跳转到登陆
                     uri = "/login.jsp";

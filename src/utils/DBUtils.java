@@ -1,5 +1,7 @@
 package utils;
 
+import utils.annotation.Column;
+
 import java.lang.reflect.Field;
 import java.sql.*;
 import java.util.*;
@@ -14,12 +16,17 @@ import java.util.logging.Logger;
  */
 public class DBUtils {
     private static final Logger loger = Logger.getLogger(JDBCPool.class.getName());
+
     /**
-     * 执行sql，成功返回true，失败返回false
+     * 私有构造，禁止实例化
+     */
+    private DBUtils(){}
+    /**
+     * 执行sql，
      *
      * @param sql
      * @param params 可选的可变参数，可以省略，若有则按顺序加入到sql中的？占位符
-     * @return
+     * @return 成功返回true，失败返回false
      */
     public static boolean executeSQL(String sql, String... params) {
         boolean flag = false;
@@ -44,145 +51,127 @@ public class DBUtils {
         return flag;
     }
 
-    public ResultSet executeQuerySQL(String sql, String... params){
+    /**
+     * 执行查询sql
+     * @param sql
+     * @param params 可选的可变参数，可以省略，若有则按顺序加入到sql中的？占位符
+     * @return 返回结果集
+     */
+    public static ResultSet executeQuerySQL(String sql, String... params){
         Connection connection =  JDBCPool.getConnection();
         PreparedStatement statement = null;
         ResultSet set=null;
+
         try {
             statement = connection.prepareStatement(sql);
             for (int i = 0, n = params.length; i < n; i++) {
                 statement.setString(i + 1, params[i]);
             }
-            set=statement.executeQuery(sql);
+            set=statement.executeQuery();
 
         } catch (Exception e) {
             loger.log(Level.ALL,"sql出错");
             e.printStackTrace();
         } finally {
-
-
-                DBUtils.close(connection,statement,null);
-
-
+                DBUtils.close(connection,null,null);
         }
         return set;
     }
 
+    /**
+     * 通过实体类的字节码文件获取对应的数据库表中的数据
+     * @param cls 字节码文件，例如User.class
+     * @return 对应的实体类的 LinkList
+     */
     public static LinkedList getList(Class cls)
     {
-        LinkedList list=new LinkedList();
-        Connection conn=JDBCPool.getConnection();
-        PreparedStatement pstmt=null;
+        LinkedList list=null;
         ResultSet rs=null;
-
-//要求:数据表中的字段必须与类中的属性一一对应
-        //获取类中的所有的属性
-        Field[] fi=cls.getDeclaredFields();
+        //要求:数据表中的字段必须与类中的属性一一对应
         //获取类名(类名必须与数据表一致)
         String sql="select * from "+cls.getSimpleName();
         try{
-            pstmt=conn.prepareStatement(sql);
-            rs=pstmt.executeQuery();
-            while(rs.next())
-            {
-                //创建指定类的实例化对象
-                Object obj=cls.newInstance();
-                for(Field f:fi)
-                {
-                    //表示可以访问类中的私有属性
-                    f.setAccessible(true);
-                    //调用类中指定属性的set方法赋值
-                    f.set(obj, rs.getObject(f.getName()));
-                }
-                list.add(obj);
-            }
+            rs=executeQuerySQL(sql);
+            list = BeanUtils.rsToBeanList(cls, rs);
         }catch(Exception e)
         {
             e.printStackTrace();
         }finally{
-            DBUtils.close(conn, pstmt,rs);
+            DBUtils.close(null, null,rs);
         }
         return list;
     }
 
+
+
+
     /**
      * 根据数据表中的主键获取到指定数据表对应的一条记录(对应一个对象)
+     * @param cl 实体类字节码文件
+     * @param id id主键值
+     * @return  返回实体类对象
      */
 
     public static Object getObjectById(Class cl,int id)
     {
-        Connection conn=JDBCPool.getConnection();
-        PreparedStatement pstmt=null;
         ResultSet rs=null;
         Object obj=null;
         //获取类中的所有的属性
         Field[] fi=cl.getDeclaredFields();
+        String name = fi[0].getName();
+        Column annotation = fi[0].getAnnotation(Column.class);
+        if(annotation!=null){
+            name=annotation.name();
+        }
         //fi[0].getName()获取数据表中第一列字段
-        String sql="select * from "+cl.getSimpleName()+" where "+fi[0].getName()+" = "+id;
+        String sql="select * from "+cl.getSimpleName()+" where "+name+" = ?";
         try{
-            pstmt=conn.prepareStatement(sql);
-            rs=pstmt.executeQuery();
-            if(rs.next())
-            {
-                //创建指定类的实例化对象
-                obj=cl.newInstance();
-                for(Field f:fi)
-                {
-                    //表示可以访问类中的私有属性
-                    f.setAccessible(true);
-                    //调用类中指定属性的set方法赋值
-                    f.set(obj, rs.getObject(f.getName()));
-                }
-            }
+            rs=executeQuerySQL(sql,String.valueOf(id));
+            obj = BeanUtils.rsToBean(cl,rs);
         }catch(Exception e)
         {
             e.printStackTrace();
         }finally{
-            DBUtils.close(conn, pstmt,rs);
+            DBUtils.close(null, null,rs);
         }
         return obj;
     }
 
     /**
      * 根据数据表中的一个字段和对应的值查询
+     * @param cl 实体类字节码文件
+     * @param name 字段名
+     * @param value 字段值
+     * @return 返回符合条件的实体类对象链表
      */
-    public static LinkedList getListBySome(Class cl,String name,Object value)
+    public static LinkedList getListBySome(Class cl,String name,String value)
     {
 
 
-        LinkedList list=new LinkedList();
-        Connection conn=JDBCPool.getConnection();
-        PreparedStatement pstmt=null;
+        LinkedList list=null;
         ResultSet rs=null;
         //获取类中的所有的属性
         Field[] fi=cl.getDeclaredFields();
-        String sql="select * from "+cl.getSimpleName()+" where "+name+" = '"+value+"'";
+
+        String sql="select * from "+cl.getSimpleName()+" where "+name+" = ?";
         try{
-            pstmt=conn.prepareStatement(sql);
-            rs=pstmt.executeQuery();
-            while(rs.next()){
-                Object obj=cl.newInstance();
-                for(Field f:fi)
-                {
-                    //表示可以访问类中的私有属性
-                    f.setAccessible(true);
-                    //调用类中指定属性的set方法赋值
-                    f.set(obj, rs.getObject(f.getName()));
-                }
-                list.add(obj);
-            }
+            rs=executeQuerySQL(sql,value);
+            list=BeanUtils.rsToBeanList(cl,rs);
         }catch(Exception e)
         {
             e.printStackTrace();
         }finally{
-            DBUtils.close(conn, pstmt,rs);
+            DBUtils.close(null, null,rs);
         }
         return list;
     }
-    /**
-     * 编写万能的DAO添加方法
-     */
 
+
+    /**
+     * 插入一行数据
+     * @param obj 对应的实体类对象 该实体类主键id应为自增，并且定义为第一个属性
+     * @return true或者false，对应成功或失败
+     */
     public static boolean insert(Object obj)
     {
         boolean flag=false;
@@ -195,11 +184,16 @@ public class DBUtils {
         sb.append("insert into ");
         sb.append(clz.getSimpleName());
         sb.append("(");
-//主键为第一列，是自增的，有默认值，不需要添加
+        //主键为第一列，是自增的，有默认值，不需要添加
         for(int i=1;i<fi.length;i++)
         {
             //获取列名
-            sb.append(fi[i].getName());
+            String name = fi[i].getName();
+            Column annotation = fi[0].getAnnotation(Column.class);
+            if(annotation!=null){
+                name=annotation.name();
+            }
+            sb.append(name);
             //最后一列不用加逗号
             if(i!=fi.length-1) {
                 sb.append(",");
@@ -238,8 +232,8 @@ public class DBUtils {
     }
     /**
      * 万能的更新方法
+     *  @param obj 对应的实体类对象
      */
-
     public static boolean update(Object obj){
         boolean flag=false;
         Connection conn=JDBCPool.getConnection();
@@ -254,7 +248,12 @@ public class DBUtils {
         for(int i=1;i<fi.length;i++)
         {
             //获取列名
-            sb.append(fi[i].getName());
+            String name = fi[i].getName();
+            Column annotation = fi[0].getAnnotation(Column.class);
+            if(annotation!=null){
+                name=annotation.name();
+            }
+            sb.append(name);
             sb.append(" =? ");
             //最后一列不用加逗号
             if(i!=fi.length-1) {
@@ -285,8 +284,12 @@ public class DBUtils {
         }
         return flag;
     }
+
     /**
-     * 万能的删除方法
+     * 万能的删除方法，通过id删除数据
+     * @param clz 实体类字节码文件
+     * @param id id
+     * @return
      */
     public static boolean  delete(Class clz,int id)
     {
@@ -329,6 +332,172 @@ public class DBUtils {
 
         if(connection!=null) {
             JDBCPool.close(connection);
+        }
+    }
+
+    /**
+     * 统计总行数
+     * @param cls 实体类字节码文件
+     * @return 总数
+     */
+    public static int getObjectCount(Class cls) {
+        PreparedStatement preparedStatement = null;
+        Connection connection = JDBCPool.getConnection();
+        ResultSet rs=null;
+        String sql = "select count(*) from " + cls.getSimpleName();
+        try {
+            preparedStatement = connection.prepareStatement(sql);
+            rs = preparedStatement.executeQuery();
+            rs.next();
+            int i =rs.getInt(1);
+            return i;
+        }catch (Exception e){
+            loger.info(e.getMessage());
+            e.printStackTrace();
+            return 0;
+        }finally {
+            close(connection,preparedStatement,rs);
+
+        }
+    }
+
+    /**
+     * 分页查询功能
+     * @param pageBean 工具类中的PageBean对象
+     * @param cls 实体类字节码文件
+     * @return PageBean对象
+     */
+    public static PageBean getPage(PageBean pageBean,Class cls){
+        pageBean.setTotalCount(getObjectCount(cls));
+        pageBean.getPageData().clear();
+        ResultSet rs=null;
+        String sql = "select * from " + cls.getSimpleName()+" LIMIT "+(pageBean.getCurrentPage()-1)*pageBean.getPageCount()+","+pageBean.getPageCount();
+        try {
+            rs=executeQuerySQL(sql);
+            pageBean.getPageData().addAll(BeanUtils.rsToBeanList(cls,rs));
+        }catch (Exception e){
+            loger.info(e.getMessage());
+            e.printStackTrace();
+        }finally {
+            close(null,null,rs);
+
+        }
+
+        return pageBean;
+    }
+
+    /**
+     * 分页查询功能，通过某一字段的值筛选分页
+     * @param pageBean 工具类中的PageBean对象
+     * @param cls 实体类字节码文件
+     * @param name
+     * @param value
+     * @return
+     */
+    public static PageBean getPageBySome(PageBean pageBean,Class cls,String name,String value){
+        Map<String,String> map = new TreeMap<>();
+        map.put(name, value);
+        pageBean.setTotalCount(getObjectCount(cls,map));
+        pageBean.getPageData().clear();
+        ResultSet set=null;
+        String sql="select * from "+cls.getSimpleName()+" where "+name+" = ?"+" LIMIT "+(pageBean.getCurrentPage()-1)*pageBean.getPageCount()+","+pageBean.getPageCount();;
+        try {
+            set=executeQuerySQL(sql,value);
+            pageBean.getPageData().addAll(BeanUtils.rsToBeanList(cls,set));
+        }catch (Exception e){
+            loger.info(e.getMessage());
+            e.printStackTrace();
+        }finally {
+            close(null,null,set);
+
+        }
+
+        return pageBean;
+    }
+
+    /**
+     * 分页查询功能加强版，实现多条件筛选
+     * @param pageBean
+     * @param cls
+     * @param map map参数中key对应字段名，value对应字段值
+     * @return
+     */
+    public static PageBean getPageBySome(PageBean pageBean,Class cls,Map<String,String> map){
+        pageBean.setTotalCount(getObjectCount(cls,map));
+        pageBean.getPageData().clear();
+        ResultSet set=null;
+        String sql="select * from "+cls.getSimpleName()+" where ";
+
+        for (Map.Entry<String, String> entry : map.entrySet()) {
+            sql+=entry.getKey()+" = "+entry.getValue()+" AND ";
+        }
+        String substring = sql.substring(0, sql.length() - 4);
+        substring+=" LIMIT "+(pageBean.getCurrentPage()-1)*pageBean.getPageCount()+","+pageBean.getPageCount();
+
+        try {
+            set=executeQuerySQL(substring);
+            pageBean.getPageData().addAll(BeanUtils.rsToBeanList(cls,set));
+        }catch (Exception e){
+            loger.info(e.getMessage());
+            e.printStackTrace();
+        }finally {
+            close(null,null,set);
+
+        }
+
+        return pageBean;
+    }
+
+    /**
+     * getList加强版，可实现多个查询条件
+     * @param cl
+     * @param map map参数中key对应字段名，value对应字段值
+     * @return
+     */
+    public static LinkedList getListBySome(Class cl,Map<String,String> map)
+    {
+        LinkedList list=null;
+        ResultSet rs=null;
+
+
+        String sql="select * from "+cl.getSimpleName()+" where ";
+        for (Map.Entry<String, String> entry : map.entrySet()) {
+            sql+=entry.getKey()+" = "+entry.getValue()+" AND ";
+        }
+        String substring = sql.substring(0, sql.length() - 4);
+        try{
+            rs=executeQuerySQL(substring);
+            list=BeanUtils.rsToBeanList(cl,rs);
+        }catch(Exception e)
+        {
+            e.printStackTrace();
+        }finally{
+            DBUtils.close(null, null,rs);
+        }
+        return list;
+    }
+    public static int getObjectCount(Class cls,Map<String,String> map) {
+        PreparedStatement preparedStatement = null;
+        Connection connection = JDBCPool.getConnection();
+        ResultSet rs=null;
+        String sql = "select count(*) from " + cls.getSimpleName()+" WHERE ";
+        for (Map.Entry<String, String> entry : map.entrySet()) {
+            sql+=entry.getKey()+" = "+entry.getValue()+" AND ";
+        }
+        String substring = sql.substring(0, sql.length() - 4);
+        try {
+            preparedStatement = connection.prepareStatement(substring);
+            rs = preparedStatement.executeQuery();
+            rs.next();
+            int i =rs.getInt(1);
+            return i;
+        }catch (Exception e){
+            loger.info(e.getMessage());
+            e.printStackTrace();
+            return 0;
+        }finally {
+            close(connection,preparedStatement,rs);
+
         }
     }
 }

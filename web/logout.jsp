@@ -7,7 +7,7 @@
 </head>
 <body>
 <h1 >Hello !</h1>
-<form action="/logout" method="post">
+<form action="${pageContext.request.contextPath}/do_logout" method="post">
     <input type="submit" value="Sign Out"/>
 </form>
 </body>

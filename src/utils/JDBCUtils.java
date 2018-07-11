@@ -35,7 +35,15 @@ public class JDBCUtils {
         }
     }
 
-    // 获取连接!
+    /**
+     * 私有构造
+     */
+    private JDBCUtils(){}
+
+    /**
+     * 获取连接!
+     */
+
     public static Connection getConnection() throws SQLException {
         // 得到Connection
         return DriverManager.getConnection(props.getProperty("url"),

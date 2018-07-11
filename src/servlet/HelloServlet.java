@@ -23,27 +23,16 @@ public class HelloServlet extends HttpServlet {
     Logger logger=Logger.getLogger(this.getClass().getName());
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        this.doPost(req,resp);
+
+        int i=DBUtils.getObjectCount(User.class);
+        logger.info(""+i);
+
+
+
     }
 
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        User objectById = (User) DBUtils.getObjectById(User.class, 1);
-        logger.info(objectById.toString());
-        PrintWriter writer = resp.getWriter();
-        writer.println(objectById);
-        LinkedList userName = DBUtils.getListBySome(User.class, "userName", "123456");
-        writer.println(userName);
-        DBUtils.executeSQL("UPDATE xxq.`User` SET userName =? WHERE id =?","scdacvdv","1");
-        LinkedList list = DBUtils.getList(User.class);
-        writer.println(list);
-        DBUtils.insert(new User("1234567","6545465"));
-        objectById.setPassWd("cdscdsvf");
-        DBUtils.update(objectById);
-        LinkedList list1 = DBUtils.getList(User.class);
-        writer.println(list1);
-        DBUtils.delete(User.class,2);
-        LinkedList list2 = DBUtils.getList(User.class);
-        writer.println(list2);
+
     }
 }

@@ -1,4 +1,5 @@
-<%@ page language="java" import="java.util.*" pageEncoding="UTF-8"%><!DOCTYPE html>
+<%@ page language="java" import="java.util.*" pageEncoding="UTF-8"%>
+<!DOCTYPE html>
 <!DOCTYPE html>
 <!-- saved from url=(0052)http://getbootstrap.com/docs/4.0/examples/dashboard/ -->
 <html lang="en"
@@ -10,7 +11,7 @@
 		<meta name="description" content="">
 		<meta name="author" content="">
 
-		<title>终端水系统</title>
+		<title>员工管理系统</title>
 		<!-- Bootstrap core CSS -->
 		<link href="${pageContext.request.contextPath}/static/css/bootstrap.min.css" rel="stylesheet">
 
@@ -46,11 +47,14 @@
 
 	<body>
 	<!--引入topbar-->
-	<div replace="commons/bar::topbar(title='实时流量')"></div>
+	<jsp:include page="${pageContext.request.contextPath}/commons/bar.jsp">
+		<jsp:param value="index" name="activeUri"/>
+		<jsp:param name="title" value="月度报表"/>
+	</jsp:include>
 	<div class="container-fluid">
 		<div class="row">
 			<!--引入sidebar-->
-			<div replace="commons/bar::#sidebar(activeUri='index')"></div>
+
 			<main role="main" class="col-md-9 ml-sm-auto col-lg-10 pt-3 px-4">
 				<div class="chartjs-size-monitor" style="position: absolute; left: 0px; top: 0px; right: 0px; bottom: 0px; overflow: hidden; pointer-events: none; visibility: hidden; z-index: -1;">
 					<div class="chartjs-size-monitor-expand" style="position:absolute;left:0;top:0;right:0;bottom:0;overflow:hidden;pointer-events:none;visibility:hidden;z-index:-1;">
